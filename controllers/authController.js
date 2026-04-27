@@ -1,6 +1,8 @@
+const crypto = require('crypto');
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const { sendEmail } = require('../utils/sendEmail');
 const { OAuth2Client } = require('google-auth-library');
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -55,7 +57,13 @@ exports.googleLogin = async (req, res) => {
 
     let user = await User.findOne({ googleId });
     if (!user) {
-      user = new User({ googleId, email, name, avatarUrl: picture });
+      // Check if an email/password account already exists and link it
+      user = await User.findOne({ email });
+      if (user) {
+        user.googleId = googleId;
+      } else {
+        user = new User({ googleId, email, name, avatarUrl: picture });
+      }
       await user.save();
     } else {
       // Always sync profile data from Google on every login
@@ -147,6 +155,37 @@ exports.trackTime = async (req, res) => {
     if (!user.streakDates.includes(today)) user.streakDates.push(today);
     await user.save();
     res.json({ streakCount: user.streakCount, awarded: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+    if (!user || !user.password) return res.status(404).json({ error: 'No account found with this email' });
+    const token = Math.floor(100000 + Math.random() * 900000).toString();
+    user.resetToken = token;
+    user.resetTokenExpiry = new Date(Date.now() + 3600000);
+    await user.save();
+    await sendEmail(email, 'Your Password Reset Code', `Your password reset code is: ${token}\n\nThis code expires in 1 hour.`);
+    res.json({ message: 'Reset code sent to your email' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.resetPassword = async (req, res) => {
+  try {
+    const { token, password } = req.body;
+    const user = await User.findOne({ resetToken: token, resetTokenExpiry: { $gt: new Date() } });
+    if (!user) return res.status(400).json({ error: 'Invalid or expired reset code' });
+    user.password = await bcrypt.hash(password, 10);
+    user.resetToken = null;
+    user.resetTokenExpiry = null;
+    await user.save();
+    res.json({ message: 'Password reset successful' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

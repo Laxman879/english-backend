@@ -6,7 +6,7 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 exports.generateStory = async (req, res) => {
   try {
-    const { words, genre } = req.body;
+    const { words, genre, wordCount = 100 } = req.body;
     if (!words || !Array.isArray(words)) {
       return res.status(400).json({ message: "Please provide an array of words" });
     }
@@ -15,15 +15,16 @@ exports.generateStory = async (req, res) => {
       ? `The story must be in the "${genre}" genre. Match the tone, setting, and style of that genre.`
       : 'Topics can be: daily life, friendship, travel, work, love, dreams, nature, city life';
 
-    const prompt = `Write a simple English story in 80-100 words that anyone can understand easily.
+    const prompt = `Write a simple English story in approximately ${wordCount} words that anyone can understand easily.
 
 Rules:
 - Use simple, common English words only
-- Keep sentences short and clear (8-10 words max)
+- Keep sentences short and clear
 - Use simple tenses (present, past)
 - Make the story interesting with a clear beginning, middle, and end
 - ${genreInstruction}
 - Must include these words naturally: ${words.join(", ")}
+- Target length: ${wordCount} words (stay within 10% of this count)
 
 Do NOT use: idioms, phrasal verbs, slang, or academic vocabulary.
 Write like you are talking to a friend in easy English.`;

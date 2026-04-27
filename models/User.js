@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema({
   name: String,
-  email: String,
+  email: { type: String, unique: true, sparse: true },
   googleId: String,
   avatarUrl: String,
   preferredLanguage: String,
@@ -11,6 +11,8 @@ const userSchema = new mongoose.Schema({
   lastStreakDate: String,
   streakDates: [String],
   password: { type: String, default: null },
+  resetToken: { type: String, default: null },
+  resetTokenExpiry: { type: Date, default: null },
   reminderFrequency: { type: String, default: 'none' },
   reminderTime: { type: String, default: '09:00 AM' },
   reminderRepeat: { type: String, default: 'daily' },

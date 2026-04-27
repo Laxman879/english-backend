@@ -109,12 +109,13 @@ exports.updateExamples = async (req, res) => {
 
 exports.updateWord = async (req, res) => {
   try {
-    const { image, meaning, word: wordText } = req.body;
+    const { image, meaning, word: wordText, translations } = req.body;
     const wordDoc = await Word.findById(req.params.id);
     if (!wordDoc) return res.status(404).json({ message: "Word not found" });
     if (image !== undefined) wordDoc.image = image;
     if (meaning !== undefined) wordDoc.meaning = meaning;
     if (wordText !== undefined) wordDoc.word = wordText;
+    if (translations !== undefined) wordDoc.translations = translations;
     await wordDoc.save();
     res.json(wordDoc);
   } catch (error) {
@@ -128,37 +129,22 @@ exports.generateWord = async (req, res) => {
     const { word, imageUrl } = req.body;
     if (!word) return res.status(400).json({ message: 'Word is required' });
 
-    const LANG_CODES = {
-      hindi: 'hi', telugu: 'te', tamil: 'ta', kannada: 'kn', malayalam: 'ml',
-      bengali: 'bn', marathi: 'mr', gujarati: 'gu', punjabi: 'pa', odia: 'or',
-      assamese: 'as', urdu: 'ur', sanskrit: 'sa', konkani: 'kok', manipuri: 'mni',
-      bodo: 'brx', dogri: 'doi', kashmiri: 'ks', maithili: 'mai', santali: 'sat',
-      sindhi: 'sd', nepali: 'ne'
-    };
-
-    // Build translations for ALL languages via Google Translate
-    const allTranslations = {};
-    await Promise.all(
-      Object.entries(LANG_CODES).map(async ([langKey, langCode]) => {
-        try {
-          const gtRes = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=${langCode}&dt=t&q=${encodeURIComponent(word)}`);
-          const gtData = await gtRes.json();
-          const translation = gtData?.[0]?.[0]?.[0];
-          if (translation && translation.toLowerCase() !== word.toLowerCase()) {
-            allTranslations[langKey] = translation;
-          }
-        } catch (e) {}
-      })
-    );
-
-    // Get meaning + examples via Groq
-    const prompt = `Analyze the English word "${word}". Return ONLY valid JSON:
+    // Get meaning, examples AND contextual translations via Groq in one call
+    const prompt = `Analyze the English word "${word}". Provide contextual (not literal) translations that preserve the actual meaning and usage of the word.
+Return ONLY valid JSON:
 {
   "meaning": "Clear and concise English definition.",
   "examples": {
     "past": "A sentence using the word in past tense.",
     "present": "A sentence using the word in present tense.",
     "future": "A sentence using the word in future tense."
+  },
+  "translations": {
+    "hindi": "", "telugu": "", "tamil": "", "kannada": "", "malayalam": "",
+    "bengali": "", "marathi": "", "gujarati": "", "punjabi": "", "odia": "",
+    "assamese": "", "urdu": "", "sanskrit": "", "konkani": "", "manipuri": "",
+    "bodo": "", "dogri": "", "kashmiri": "", "maithili": "", "santali": "",
+    "sindhi": "", "nepali": ""
   }
 }`;
 
@@ -170,6 +156,11 @@ exports.generateWord = async (req, res) => {
     });
 
     const parsedData = JSON.parse(chatCompletion.choices[0].message.content);
+    const allTranslations = Object.fromEntries(
+      Object.entries(parsedData.translations || {}).filter(
+        ([, v]) => v && v.toLowerCase() !== word.toLowerCase()
+      )
+    );
 
     let image = imageUrl || '';
     if (!image) {

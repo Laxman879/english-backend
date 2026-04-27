@@ -10,6 +10,8 @@ router.get('/:id', playlistController.getPlaylistById);
 router.post('/', playlistController.createPlaylist);
 router.put('/:id/add-item', playlistController.addItem);
 router.put('/:id/remove-item', playlistController.removeItem);
+router.post('/:id/items', playlistController.addItem);
+router.delete('/:id/items', playlistController.removeItem);
 router.delete('/:id', playlistController.deletePlaylist);
 router.put('/:id', playlistController.updatePlaylist);
 
