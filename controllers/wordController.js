@@ -192,3 +192,35 @@ Return ONLY valid JSON:
     res.status(500).json({ error: error.message });
   }
 };
+
+// Two-way translation between English / Telugu / Hindi (and other supported langs).
+exports.translateText = async (req, res) => {
+  try {
+    const { text, from, to } = req.body;
+    if (!text || !text.trim()) return res.status(400).json({ error: 'Text is required' });
+    if (!from || !to)          return res.status(400).json({ error: 'from and to languages are required' });
+    if (from === to)           return res.json({ translation: text.trim(), meaning: '', from, to });
+
+    const prompt = `Translate the following text from ${from} to ${to}.
+Give a natural, contextual translation that preserves the real meaning (not word-for-word).
+Text: "${text.trim()}"
+Return ONLY valid JSON:
+{
+  "translation": "the translation written in ${to}",
+  "meaning": "a short plain-English gloss of the text (empty string if ${to} is already English)"
+}`;
+
+    const completion = await groq.chat.completions.create({
+      messages: [{ role: 'user', content: prompt }],
+      model: 'llama-3.3-70b-versatile',
+      temperature: 0.2,
+      response_format: { type: 'json_object' },
+    });
+
+    const data = JSON.parse(completion.choices[0].message.content);
+    res.json({ translation: data.translation || '', meaning: data.meaning || '', from, to });
+  } catch (error) {
+    console.error('translateText error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+};

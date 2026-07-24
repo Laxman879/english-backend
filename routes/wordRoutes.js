@@ -7,6 +7,7 @@ router.get('/languages', wordController.getLanguages);
 router.get('/', wordController.getWords);
 router.get('/featured', authMiddleware, wordController.getFeaturedWord);
 router.post('/generate', authMiddleware, wordController.generateWord);
+router.post('/translate', authMiddleware, wordController.translateText);
 router.get('/:id', wordController.getWordById);
 router.get('/:id/related', authMiddleware, wordController.getRelatedWords);
 router.put('/:id/examples', authMiddleware, wordController.updateExamples);
