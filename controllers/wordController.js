@@ -4,6 +4,15 @@ const Groq = require("groq-sdk");
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
+// Build a free AI-generated image URL (Pollinations) from a word + optional meaning.
+// The URL itself renders an AI image on first load, then is cached — safe to store.
+function aiImageUrl(word, meaning) {
+  const prompt = `A clear, simple, educational illustration representing the English word "${word}"${
+    meaning ? `: ${meaning}` : ''
+  }. Vivid, minimal, no text.`;
+  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=800&height=600&nologo=true`;
+}
+
 const SUPPORTED_LANGUAGES = [
   'Hindi', 'Telugu', 'Tamil', 'Kannada', 'Malayalam',
   'Bengali', 'Marathi', 'Gujarati', 'Punjabi', 'Odia',
@@ -72,7 +81,10 @@ Return ONLY valid JSON: { "synonyms": ["word1","word2","word3","word4","word5"],
 
 exports.createWord = async (req, res) => {
   try {
-    const word = new Word(req.body);
+    const body = { ...req.body };
+    // Auto-generate an AI image from the word when none was provided.
+    if (!body.image && body.word) body.image = aiImageUrl(body.word, body.meaning);
+    const word = new Word(body);
     await word.save();
     res.status(201).json(word);
   } catch (error) {
@@ -162,16 +174,8 @@ Return ONLY valid JSON:
       )
     );
 
-    let image = imageUrl || '';
-    if (!image) {
-      try {
-        const imgRes = await fetch(`https://api.unsplash.com/search/photos?query=${encodeURIComponent(word)}&per_page=1&client_id=demo`);
-        if (!imgRes.ok) throw new Error();
-        const imgData = await imgRes.json();
-        image = imgData.results?.[0]?.urls?.regular || '';
-      } catch (e) {}
-      if (!image) image = `https://source.unsplash.com/800x600/?${encodeURIComponent(word)}`;
-    }
+    // Auto-generate an AI image based on the word + its meaning (free, no API key).
+    const image = imageUrl || aiImageUrl(word, parsedData.meaning);
 
     const newWord = new Word({
       word,
