@@ -18,7 +18,7 @@ const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
 
 app.post('/api/upload', upload.single('image'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-  res.json({ url: `http://localhost:5000/uploads/${req.file.filename}` });
+  res.json({ url: `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}` });
 });
 
 const authRoutes = require('./routes/authRoutes');
@@ -99,9 +99,13 @@ cron.schedule('* * * * *', async () => {
 });
 
 // Database Connection
-mongoose.connect(process.env.MONGO_URI)
+// NOTE: tlsAllowInvalidCertificates is a TEMPORARY workaround because the Atlas
+// cluster's TLS certificate expired on 2026-07-18. Proper fix: resume/redeploy the
+// cluster in the Atlas dashboard so it gets a fresh cert, then remove this option.
+mongoose.connect(process.env.MONGO_URI, { tlsAllowInvalidCertificates: true })
 .then(() => console.log("MongoDB Connected"))
 .catch(err => console.log(err));
 
-app.listen(5000, () => console.log("Server running"));
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 // reload trigger v3
