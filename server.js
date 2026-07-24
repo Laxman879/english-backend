@@ -8,6 +8,9 @@ app.use(cors());
 app.use(express.json());
 app.use('/uploads', express.static('uploads'));
 
+// Health / status route — visiting the root URL confirms the server is up.
+app.get('/', (req, res) => res.send('✅ English backend is working'));
+
 const multer = require('multer');
 const path = require('path');
 const storage = multer.diskStorage({
